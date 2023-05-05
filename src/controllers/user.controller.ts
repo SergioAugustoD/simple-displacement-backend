@@ -1,97 +1,55 @@
-import bcrypt from 'bcrypt';
 import { Request, Response } from 'express';
 
-import db from '../config/database';
-import { LicenseController } from './licenses.controller';
-// ==> Método responsável por criar um novo 'Product':
+import { userModel } from '../models/users';
+import { User } from '../types/User';
+import { badRequest } from '../utils/errors';
 
-const encryptPass = async (password: string) => {
-  const saltRounds = 10;
-  const salt = bcrypt.genSaltSync(saltRounds);
-  const hash = bcrypt.hashSync(password, salt);
+const insertUser = (req: Request, res: Response) => {
+  {
+    const user = req.body;
 
-  return hash;
-};
-
-const createUser = async (req: Request, res: Response) => {
-  const date = new Date();
-  const { name, last_name, email, login, password } = req.body;
-
-  const userInfo = await db.query(
-    'SELECT count(*) FROM USERS where login = $1',
-    [login]
-  );
-
-  if (userInfo.rowCount > 0) {
-    return res.send({
-      err: true,
-      message: `Usuário já existe!`
-    });
+    if (!user.name) return badRequest(res, 'Informe seu nome!');
+    if (!user.last_name) return badRequest(res, 'Informe seu sobrenome!');
+    if (!user.email) return badRequest(res, 'Informe seu e-mail!');
+    if (!user.login) return badRequest(res, 'Informe seu login!');
+    if (!user.password) return badRequest(res, 'Informe sua senha!');
   }
-  await db
-    .query(
-      'INSERT INTO users (name, last_name, email,login,password,created_on) VALUES ($1, $2, $3, $4, $5, $6)',
-      [name, last_name, email, login, await encryptPass(password), date]
-    )
-    .then(() => {
-      return res.send({
-        err: false,
-        message: `Usuário adicionado com sucesso!!`
-      });
-    })
-    .catch(() => {
-      return res.send({
-        err: true,
-        message: 'Erro ao tentar inserir o usuário, verifique!'
-      });
-    });
-};
 
-const login = async (req: Request, res: Response) => {
-  const { login, password } = req.body;
-  const userInfo = await db.query(
-    'SELECT US.name, US.last_name, US.email, US.login FROM USERS US LEFT JOIN LICENSES LC ON LC.id_user = US.id where login = $1',
-    [login]
-  );
-  await db
-    .query('SELECT password FROM users where login = $1', [login])
-    .then((r) => {
-      if (bcrypt.compareSync(password, r.rows[0].password)) {
-        LicenseController.checkIsLicensedUser(login).then((r) => {
-          if (r.rowCount > 0) {
-            res.send({
-              err: false,
-              msg: 'Logado com sucesso!!',
-              isLicensed: true,
-              data: userInfo.rows[0]
-            });
-          } else {
-            res.send({
-              err: true,
-              msg: 'Usuário não licensiado',
-              isLicensed: false
-            });
-          }
-        });
-      }
-    })
-    .catch(() => {
-      res.send({
-        err: true,
-        msg: 'Usuário ou senha incorretos, verifique!'
-      });
-    });
-};
-const checkIsLogged = async (req: Request, res: Response) => {
-  const { login } = req.body;
-
-  const userInfo = await db.query(
-    'SELECT US.name, US.last_name, US.email, US.login FROM USERS US LEFT JOIN LICENSES LC ON LC.id_user = US.id where login = $1',
-    [login]
-  );
-
-  res.send({
-    data: userInfo.rows[0]
+  const user = req.body as User;
+  userModel.createUser(user).then((e) => {
+    res.json({ e });
   });
 };
-export = { createUser, login, checkIsLogged };
+
+const userLogin = (req: Request, res: Response) => {
+  {
+    const user = req.body;
+
+    if (!user.login) return badRequest(res, 'Informe seu login');
+    if (!user.password) return badRequest(res, 'Informe sua senha');
+  }
+
+  const user = req.body as User;
+  userModel.login(user).then((resp) => {
+    res.json(resp);
+  });
+};
+
+const checkInfoUser = (req: Request, res: Response) => {
+  {
+    const user = req.body;
+
+    if (!user.login) return badRequest(res, 'Login não informado');
+  }
+
+  const user = req.body as User;
+  userModel.checkIsLogged(user).then((e) => {
+    res.json(e);
+  });
+};
+
+export const userController = {
+  insertUser,
+  userLogin,
+  checkInfoUser
+};
