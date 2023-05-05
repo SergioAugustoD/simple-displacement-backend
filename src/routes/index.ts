@@ -1,12 +1,13 @@
-import express from 'express';
-const router = express.Router();
+import { Application, Router } from 'express';
 
-router.get('/api', (req, res) => {
-  res.status(200).send({
-    success: 'true',
-    message: 'Seja bem-vindo(a) a API Node.js + PostgreSQL + Azure!',
-    version: '1.0.0'
-  });
-});
+import { licenseRouter } from './licenses';
+import { userRouter } from './users';
 
-export default router;
+export const useRoutes = (app: Application) => {
+  const apiRouter = Router();
+
+  apiRouter.use('/user', userRouter);
+  apiRouter.use('/license', licenseRouter);
+
+  app.use('/api/v1', apiRouter);
+};
